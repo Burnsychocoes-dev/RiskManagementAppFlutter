@@ -68,6 +68,8 @@ class _AddPositionDialogState extends State<AddPositionDialog> {
           ? 'Invalid number'
           : null;
     });
+    // Re-validate target whenever stop changes
+    if (_targetCtrl.text.isNotEmpty) _validateTarget(_targetCtrl.text);
   }
 
   void _validateMaxRisk(String v) {
@@ -86,12 +88,20 @@ class _AddPositionDialogState extends State<AddPositionDialog> {
   }
 
   void _validateTarget(String v) {
+    final target = double.tryParse(v);
+    final stop = double.tryParse(_stopCtrl.text);
     setState(() {
-      _targetError = v.isEmpty
-          ? 'Required'
-          : double.tryParse(v) == null
-          ? 'Invalid number'
-          : null;
+      if (v.isEmpty) {
+        _targetError = 'Required';
+      } else if (target == null) {
+        _targetError = 'Invalid number';
+      } else if (stop != null && _direction == 'LONG' && target <= stop) {
+        _targetError = 'Target must be above stop-loss for LONG';
+      } else if (stop != null && _direction == 'SHORT' && target >= stop) {
+        _targetError = 'Target must be below stop-loss for SHORT';
+      } else {
+        _targetError = null;
+      }
     });
   }
 
@@ -137,7 +147,11 @@ class _AddPositionDialogState extends State<AddPositionDialog> {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => setState(() => _direction = 'LONG'),
+                    onPressed: () {
+                      setState(() => _direction = 'LONG');
+                      if (_targetCtrl.text.isNotEmpty)
+                        _validateTarget(_targetCtrl.text);
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _direction == 'LONG'
                           ? const Color(0xFF2E7D32)
@@ -154,7 +168,11 @@ class _AddPositionDialogState extends State<AddPositionDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => setState(() => _direction = 'SHORT'),
+                    onPressed: () {
+                      setState(() => _direction = 'SHORT');
+                      if (_targetCtrl.text.isNotEmpty)
+                        _validateTarget(_targetCtrl.text);
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _direction == 'SHORT'
                           ? const Color(0xFFB71C1C)
