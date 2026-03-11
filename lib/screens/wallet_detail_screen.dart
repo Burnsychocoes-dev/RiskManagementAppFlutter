@@ -333,6 +333,31 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
     final lastUpdateStr = _dtFmt.format(
       DateTime.fromMillisecondsSinceEpoch(lastMillis),
     );
+
+    // Risk-weighted R:R: each subposition's R:R is weighted by its share of
+    // total position risk (currentRisk). Only subpositions with a valid target
+    // and non-zero risk-per-unit contribute; the weights are re-normalised
+    // among those contributors so the result always sums to 1.
+    final String avgRRStr = () {
+      final totalRisk = pos.totalCurrentRisk();
+      if (totalRisk == 0) return '-';
+
+      double weightedSum = 0;
+      double weightSum = 0;
+      for (final sp in pos.subPositions) {
+        if (sp.targetPrice == null) continue;
+        final reward = (sp.targetPrice! - sp.entryPrice).abs();
+        final riskPerUnit = (sp.entryPrice - sp.stopLossPrice).abs();
+        if (riskPerUnit == 0) continue;
+        final rr = reward / riskPerUnit;
+        final weight = sp.currentRisk() / totalRisk;
+        weightedSum += rr * weight;
+        weightSum += weight;
+      }
+      if (weightSum == 0) return '-';
+      // Re-normalise in case some subpositions were excluded
+      return (weightedSum / weightSum).toStringAsFixed(2);
+    }();
     final tf = pos.timeframe;
     final headerText = tf.isEmpty
         ? '${pos.ticker} ($pct%)'
@@ -413,6 +438,10 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
                         ),
                         Text(
                           'Target: $targetStr',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        Text(
+                          'Avg R:R: $avgRRStr',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         Text(
