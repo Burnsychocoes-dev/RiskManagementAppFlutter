@@ -94,15 +94,24 @@ class _EstimateSizeDialogState extends State<EstimateSizeDialog> {
   void _onRiskFlatChanged(String v) {
     final flat = _parse(v);
     setState(() {
-      _riskFlatError = flat == null
-          ? (v.isEmpty ? 'Required' : 'Invalid number')
-          : null;
+      if (flat == null) {
+        _riskFlatError = v.isEmpty ? 'Required' : 'Invalid number';
+      } else if (widget.maxAllowedRisk != null &&
+          flat > widget.maxAllowedRisk!) {
+        _riskFlatError =
+            'Exceeds max risk (${widget.currency}${widget.maxAllowedRisk!.toStringAsFixed(2)})';
+      } else {
+        _riskFlatError = null;
+      }
+
       if (flat != null &&
           widget.maxAllowedRisk != null &&
           widget.maxAllowedRisk! > 0) {
         final pct = flat / widget.maxAllowedRisk! * 100;
         _riskPctCtrl.text = pct.toStringAsFixed(2);
-        _riskPctError = null;
+        _riskPctError = pct > 100
+            ? 'Cannot exceed 100% of position max risk'
+            : null;
       }
     });
   }
@@ -110,13 +119,20 @@ class _EstimateSizeDialogState extends State<EstimateSizeDialog> {
   void _onRiskPctChanged(String v) {
     final pct = _parse(v);
     setState(() {
-      _riskPctError = pct == null
-          ? (v.isEmpty ? 'Required' : 'Invalid number')
-          : null;
+      if (pct == null) {
+        _riskPctError = v.isEmpty ? 'Required' : 'Invalid number';
+      } else if (pct > 100) {
+        _riskPctError = 'Cannot exceed 100% of position max risk';
+      } else {
+        _riskPctError = null;
+      }
+
       if (pct != null && widget.maxAllowedRisk != null) {
         final flat = pct / 100.0 * widget.maxAllowedRisk!;
         _riskFlatCtrl.text = flat.toStringAsFixed(2);
-        _riskFlatError = null;
+        _riskFlatError = flat > widget.maxAllowedRisk!
+            ? 'Exceeds max risk (${widget.currency}${widget.maxAllowedRisk!.toStringAsFixed(2)})'
+            : null;
       }
     });
   }
@@ -164,6 +180,7 @@ class _EstimateSizeDialogState extends State<EstimateSizeDialog> {
       _parse(_riskFlatCtrl.text) != null &&
       _riskFlatError == null &&
       _riskPctError == null &&
+      _entryError == null &&
       _relationError == null &&
       _relationTargetError == null &&
       _targetError == null;
