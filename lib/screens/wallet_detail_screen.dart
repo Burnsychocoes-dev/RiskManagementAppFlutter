@@ -8,6 +8,7 @@ import '../models/sub_position.dart';
 import '../widgets/add_position_dialog.dart';
 import '../widgets/estimate_size_dialog.dart';
 import '../widgets/reduce_subposition_dialog.dart';
+import '../widgets/reduce_position_dialog.dart';
 
 final _dtFmt = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -112,6 +113,8 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
   _showAddSub;
   // (positionId, subIndex, currentSize)
   ({String positionId, int subIndex, double currentSize})? _showReduce;
+  // positionId for reduce-all-subpositions dialog
+  String? _showReducePosition;
 
   Set<String> _expandedPositions = {};
 
@@ -235,6 +238,18 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
                         );
                       }
                       setState(() => _showReduce = null);
+                    },
+                  ),
+                if (_showReducePosition != null)
+                  ReducePositionDialog(
+                    onDismiss: () => setState(() => _showReducePosition = null),
+                    onReduce: (percent) {
+                      vm.reducePosition(
+                        wallet.id,
+                        _showReducePosition!,
+                        percent,
+                      );
+                      setState(() => _showReducePosition = null);
                     },
                   ),
               ],
@@ -465,6 +480,19 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
                           direction: pos.direction.toString(),
                         ),
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Reduce position',
+                      icon: const Text(
+                        '-',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: pos.subPositions.isEmpty
+                          ? null
+                          : () => setState(() => _showReducePosition = pos.id),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete),

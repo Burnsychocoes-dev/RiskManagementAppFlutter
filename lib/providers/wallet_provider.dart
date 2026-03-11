@@ -281,6 +281,53 @@ class WalletProvider extends ChangeNotifier {
     _persist();
   }
 
+  void reducePosition(String walletId, String positionId, double percent) {
+    if (percent <= 0 || percent > 100) return;
+
+    double beforePct = 0.0;
+
+    _wallets = _wallets.map((w) {
+      if (w.id != walletId) return w;
+      final newPositions = w.positions.map((p) {
+        if (p.id != positionId) return p;
+        beforePct = p.currentSizePercent();
+        final newSubs = p.subPositions
+            .map((sp) {
+              final toRemove = percent / 100.0 * sp.sizeInAsset;
+              final newSize = sp.sizeInAsset - toRemove;
+              if (newSize <= 0) return null;
+              return sp.copyWith(
+                sizeInAsset: double.parse(newSize.toStringAsFixed(8)),
+                sizeInWalletCurrency: double.parse(
+                  (newSize * sp.entryPrice).toStringAsFixed(2),
+                ),
+              );
+            })
+            .whereType<SubPosition>()
+            .toList();
+        return p.copyWith(subPositions: newSubs);
+      }).toList();
+
+      final posAfter = newPositions.firstWhere(
+        (p) => p.id == positionId,
+        orElse: () => Position(ticker: '', maximumAllowedRisk: 0),
+      );
+      final afterPct = posAfter.currentSizePercent();
+      final delta = double.parse((afterPct - beforePct).toStringAsFixed(2));
+      final deltaSign = delta >= 0 ? '+' : '';
+      final desc =
+          'Reduced position ${posAfter.ticker} by ${percent.toStringAsFixed(2)}% across all subpositions — pos ${beforePct.toStringAsFixed(2)}% -> ${afterPct.toStringAsFixed(2)}% (Δ ${deltaSign}${delta.toStringAsFixed(2)}%)';
+
+      final newHistory = [
+        ...w.history,
+        WalletAction(type: ActionType.reduceSubposition, description: desc),
+      ];
+      return w.copyWith(positions: newPositions, history: newHistory);
+    }).toList();
+    notifyListeners();
+    _persist();
+  }
+
   void removeSubposition(String walletId, String positionId, int subIndex) {
     _wallets = _wallets.map((w) {
       if (w.id != walletId) return w;
