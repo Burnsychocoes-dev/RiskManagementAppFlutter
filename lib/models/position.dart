@@ -41,6 +41,30 @@ class Position {
     return double.parse((totalCost / totalUnits).toStringAsFixed(2));
   }
 
+  /// Lower bound for stop-loss on a LONG:
+  /// the stop at which totalCurrentRisk would equal maximumAllowedRisk.
+  /// Returns null if no subpositions exist.
+  double? minStopLossLong() {
+    final totalUnits = subPositions.fold(0.0, (acc, s) => acc + s.sizeInAsset);
+    if (totalUnits == 0.0) return null;
+    final avg = averageEntryPrice();
+    return double.parse(
+      (avg - maximumAllowedRisk / totalUnits).toStringAsFixed(8),
+    );
+  }
+
+  /// Upper bound for stop-loss on a SHORT:
+  /// the stop at which totalCurrentRisk would equal maximumAllowedRisk.
+  /// Returns null if no subpositions exist.
+  double? maxStopLossShort() {
+    final totalUnits = subPositions.fold(0.0, (acc, s) => acc + s.sizeInAsset);
+    if (totalUnits == 0.0) return null;
+    final avg = averageEntryPrice();
+    return double.parse(
+      (avg + maximumAllowedRisk / totalUnits).toStringAsFixed(8),
+    );
+  }
+
   double totalCurrentRisk() {
     final total = subPositions.fold(0.0, (acc, s) => acc + s.currentRisk());
     return double.parse(total.toStringAsFixed(2));

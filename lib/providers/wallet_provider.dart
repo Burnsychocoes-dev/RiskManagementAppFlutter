@@ -137,6 +137,49 @@ class WalletProvider extends ChangeNotifier {
 
   // ─── Sub-Positions ─────────────────────────────────────────────────────────
 
+  /// Updates the stop-loss on the position and all its subpositions.
+  /// If the new stop equals the average entry price (LONG: stop == avg, SHORT: stop == avg),
+  /// maximumAllowedRisk is set to 0 (break-even).
+  void updatePositionStopLoss(
+    String walletId,
+    String positionId,
+    double newStop,
+  ) {
+    _wallets = _wallets.map((w) {
+      if (w.id != walletId) return w;
+      final newPositions = w.positions.map((p) {
+        if (p.id != positionId) return p;
+
+        final avg = p.averageEntryPrice();
+        final isBreakEven = (newStop - avg).abs() < 0.000001;
+
+        // Update stop on every subposition
+        final newSubs = p.subPositions
+            .map((sp) => sp.copyWith(stopLossPrice: newStop))
+            .toList();
+
+        return p.copyWith(
+          stopLossPrice: newStop,
+          subPositions: newSubs,
+          maximumAllowedRisk: isBreakEven ? 0.0 : p.maximumAllowedRisk,
+        );
+      }).toList();
+
+      final pos = newPositions.firstWhere(
+        (p) => p.id == positionId,
+        orElse: () => Position(ticker: '', maximumAllowedRisk: 0),
+      );
+      final desc = 'Updated stop-loss for ${pos.ticker} to $newStop';
+      final newHistory = [
+        ...w.history,
+        WalletAction(type: ActionType.updateWalletMax, description: desc),
+      ];
+      return w.copyWith(positions: newPositions, history: newHistory);
+    }).toList();
+    notifyListeners();
+    _persist();
+  }
+
   void addSubPositionToPosition(
     String walletId,
     String positionId,

@@ -9,6 +9,7 @@ import '../widgets/add_position_dialog.dart';
 import '../widgets/estimate_size_dialog.dart';
 import '../widgets/reduce_subposition_dialog.dart';
 import '../widgets/reduce_position_dialog.dart';
+import '../widgets/edit_position_stop_dialog.dart';
 
 final _dtFmt = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -115,6 +116,8 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
   ({String positionId, int subIndex, double currentSize})? _showReduce;
   // positionId for reduce-all-subpositions dialog
   String? _showReducePosition;
+  // position for edit stop-loss dialog
+  Position? _showEditStop;
 
   Set<String> _expandedPositions = {};
 
@@ -252,6 +255,25 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
                       setState(() => _showReducePosition = null);
                     },
                   ),
+                if (_showEditStop != null)
+                  EditPositionStopDialog(
+                    isLong: _showEditStop!.direction == Direction.long,
+                    currentStop: _showEditStop!.stopLossPrice ?? 0.0,
+                    avgEntry: _showEditStop!.averageEntryPrice(),
+                    boundStop: _showEditStop!.direction == Direction.long
+                        ? _showEditStop!.minStopLossLong()
+                        : _showEditStop!.maxStopLossShort(),
+                    currency: currency,
+                    onDismiss: () => setState(() => _showEditStop = null),
+                    onSave: (newStop) {
+                      vm.updatePositionStopLoss(
+                        wallet.id,
+                        _showEditStop!.id,
+                        newStop,
+                      );
+                      setState(() => _showEditStop = null);
+                    },
+                  ),
               ],
             ),
     );
@@ -340,6 +362,9 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
     final maxRisk = pos.maximumAllowedRisk.toStringAsFixed(2);
     final currentRisk = pos.totalCurrentRisk().toStringAsFixed(2);
     final targetStr = pos.targetPrice?.toStringAsFixed(2) ?? '-';
+    final avgEntryStr = pos.subPositions.isEmpty
+        ? '-'
+        : pos.averageEntryPrice().toStringAsFixed(2);
     final lastMillis = pos.subPositions.isEmpty
         ? pos.createdAtMillis
         : pos.subPositions
@@ -444,6 +469,10 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         Text(
+                          'Avg entry: $avgEntryStr',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        Text(
                           'Max risk: $currency$maxRisk',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
@@ -480,6 +509,14 @@ class _WalletDetailScreenState extends State<WalletDetailScreen> {
                           direction: pos.direction.toString(),
                         ),
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Edit stop-loss',
+                      icon: const Icon(Icons.edit, size: 18),
+                      onPressed:
+                          pos.subPositions.isEmpty || pos.stopLossPrice == null
+                          ? null
+                          : () => setState(() => _showEditStop = pos),
                     ),
                     IconButton(
                       tooltip: 'Reduce position',
